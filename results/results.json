@@ -1,0 +1,41 @@
+{
+  "created_utc": "2026-10-14T01:57:30+00:00",
+  "environment": {
+    "platform": "Linux-6.18.44-fc-v114-x86_64-with-glibc2.39",
+    "python": "3.12.3",
+    "cpu_count": 1
+  },
+  "queue_quality": {
+    "transactions": 20000,
+    "fraud_rate": 0.01885,
+    "precision_at_50": 1.0,
+    "precision_at_200": 0.74,
+    "precision_at_1000": 0.252,
+    "random_ranking_precision": 0.01885,
+    "high_band": {
+      "alerts": 242,
+      "alerts_per_day": 2.688888888888889,
+      "precision": 0.6735537190082644,
+      "recall": 0.4323607427055703
+    }
+  },
+  "workflow_fuzz": {
+    "operations": 3000,
+    "accepted": 617,
+    "rejected": 2383,
+    "decision_mismatches_vs_model": 0,
+    "final_states_match_model": true,
+    "audit_rows": 618,
+    "audit_rows_expected": 618,
+    "audit_count_exact": true
+  },
+  "latency": {
+    "rows": 20000,
+    "ingest_seconds": 0.3225811089999979,
+    "list_query_ms": {
+      "median": 2.8465824999841516,
+      "p95": 4.8050249999960215
+    },
+    "stats_ms": 13.155079999989994
+  }
+}

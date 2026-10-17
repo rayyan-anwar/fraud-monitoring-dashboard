@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fraud Monitoring Dashboard — Rayyan Anwar</title>
+<style>
+:root{--bg:#f2f5f7;--surface:#fff;--ink:#14202b;--muted:#52606d;--rule:#d5dde3;--accent:#0b6e7f;--accent-ink:#fff;--err:#a61b1b;--hi:#a61b1b;--med:#9a4f00;--lo:#17613a}
+@media (prefers-color-scheme:dark){:root{--bg:#10171d;--surface:#18222b;--ink:#e8eef2;--muted:#9fb0bd;--rule:#2b3945;--accent:#5cc2d3;--accent-ink:#06222a;--err:#ff8c8c;--hi:#ff8c8c;--med:#f0b36b;--lo:#7fd8a6}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:1100px;margin:0 auto;padding:24px 16px 48px}h1{font-size:1.7rem;margin:0 0 4px}h2{font-size:1.15rem;margin:0 0 8px}
+p.lede{color:var(--muted);margin:0 0 16px;max-width:72ch}.banner{border:1px solid var(--med);color:var(--med);border-radius:6px;padding:8px 12px;margin:0 0 16px;font-weight:600}
+section{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:16px;margin:0 0 16px}.row{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+label{display:block;font-weight:600;margin:4px 0 3px;font-size:.9rem}select,input,textarea,button{font:inherit;color:inherit}select,input,textarea{padding:6px;border:1px solid var(--rule);border-radius:4px;background:var(--bg)}textarea{width:100%;min-height:60px}
+button{padding:8px 14px;border-radius:4px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);font-weight:600;cursor:pointer}button.secondary{background:transparent;color:var(--accent)}button:disabled{opacity:.55}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}.status{min-height:1.5em;color:var(--muted);margin:8px 0 0}.status.error{color:var(--err);font-weight:600}
+.kpis{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px}.kpi{border:1px solid var(--rule);border-radius:6px;padding:6px 12px}.kpi b{display:block;font-size:1.25rem;font-variant-numeric:tabular-nums}.kpi span{color:var(--muted);font-size:.85rem}
+.scroll{overflow-x:auto}table{border-collapse:collapse;width:100%;min-width:760px;font-variant-numeric:tabular-nums}th,td{padding:6px 8px;border-bottom:1px solid var(--rule);text-align:right}th:first-child,td:first-child,td.l,th.l{text-align:left}
+tbody tr{cursor:pointer}tbody tr:hover{background:var(--bg)}.band-high{color:var(--hi);font-weight:700}.band-medium{color:var(--med);font-weight:700}.band-low{color:var(--lo)}
+.note{color:var(--muted);font-size:.9rem}footer{color:var(--muted);font-size:.9rem}ol{padding-left:20px}
+</style></head><body><main>
+<h1>Fraud Monitoring Dashboard</h1>
+<div class="banner" role="note">Synthetic demo data. Scores are relative risk signals, not fraud determinations. Every decision is made and logged by a human reviewer.</div>
+<section aria-labelledby="a-h"><h2 id="a-h">Access and data</h2><div class="row">
+<div><label for="key">API key (leave empty if auth is disabled)</label><input id="key" type="password" autocomplete="off"></div>
+<button id="load" class="secondary">Load sample transactions (admin)</button><button id="refresh">Refresh</button></div>
+<p class="status" id="st" role="status">Load sample data to begin.</p><div class="kpis" id="kpis"></div></section>
+<section aria-labelledby="q-h"><h2 id="q-h">Risk-ranked queue</h2><div class="row">
+<div><label for="fs">Status</label><select id="fs"><option value="">any</option><option>new</option><option>under_review</option><option>escalated</option><option>confirmed_fraud</option><option>false_positive</option></select></div>
+<div><label for="fb">Band</label><select id="fb"><option value="">any</option><option>high</option><option>medium</option><option>low</option></select></div>
+<div><label for="fc">Channel</label><select id="fc"><option value="">any</option><option>pos</option><option>online</option><option>atm</option></select></div>
+<div><label for="fm">Min score</label><input id="fm" type="number" min="0" max="1" step="0.05" style="width:90px"></div>
+<div><label for="fo">Sort</label><select id="fo"><option value="score">score</option><option value="amount">amount</option><option value="timestamp">time</option></select></div>
+<button id="apply">Apply filters</button><button id="exp" class="secondary">Export CSV</button></div>
+<div class="scroll"><table id="tbl"><thead><tr><th>Transaction</th><th>Time</th><th>Amount</th><th class="l">Category</th><th class="l">Channel</th><th>Score</th><th class="l">Band</th><th class="l">Status</th></tr></thead><tbody></tbody></table></div>
+<p class="note" id="count"></p></section>
+<section id="detail" hidden aria-labelledby="d-h"><h2 id="d-h">Review</h2><p id="dinfo"></p>
+<div class="row"><div><label for="ns">Decision</label><select id="ns"></select></div><button id="sub">Record decision</button></div>
+<label for="note">Note (required for decisions)</label><textarea id="note" maxlength="1000"></textarea>
+<p class="status" id="dst" role="status"></p><h3>History</h3><ol id="hist"></ol></section>
+<footer><p><strong>About.</strong> Built by Rayyan Anwar (AI/ML Engineer | Researcher | Technology Manager | Software Developer). Educational project on synthetic data; MIT licence. © Rayyan Anwar.</p></footer>
+</main><script>
+"use strict";
+const $=(i)=>document.getElementById(i);let cur=null;
+const NEXT={new:["under_review","confirmed_fraud","false_positive","escalated"],under_review:["confirmed_fraud","false_positive","escalated"],escalated:["under_review","confirmed_fraud","false_positive"],false_positive:["under_review"],confirmed_fraud:[]};
+function st(id,t,e){const x=$(id);x.textContent=t;x.className="status"+(e?" error":"")}
+function clear(n){while(n.firstChild)n.removeChild(n.firstChild)}
+function hdr(){const h={"Content-Type":"application/json"};const k=$("key").value.trim();if(k)h["Authorization"]="Bearer "+k;return h}
+async function api(p,o){const r=await fetch(p,Object.assign({headers:hdr()},o||{}));const t=await r.text();let d={};try{d=JSON.parse(t)}catch(e){d={}}
+ if(!r.ok){let m="Request failed ("+r.status+")";if(d.error&&d.error.message)m=d.error.message;else if(typeof d.detail==="string")m=d.detail;else if(Array.isArray(d.detail)&&d.detail[0])m=d.detail[0].msg;throw new Error(m)}return o&&o.raw?t:d}
+function td(tr,v,cls){const c=document.createElement("td");c.textContent=v;if(cls)c.className=cls;tr.appendChild(c)}
+function qs(){const p=new URLSearchParams({limit:"50",sort:$("fo").value});for(const[k,i]of[["status","fs"],["band","fb"],["channel","fc"],["min_score","fm"]]){const v=$(i).value;if(v!=="")p.set(k,v)}return p}
+async function refresh(){try{const s=await api("/api/stats");const k=$("kpis");clear(k);
+ for(const[n,v]of[["Transactions",s.transactions],["Open high alerts",s.open_high_alerts],["Under review",s.by_status.under_review],["Confirmed fraud",s.by_status.confirmed_fraud],["False positives",s.by_status.false_positive],["Reviewed precision",s.reviewed_precision==null?"n/a":(100*s.reviewed_precision).toFixed(0)+"%"]]){const d=document.createElement("div");d.className="kpi";const b=document.createElement("b");b.textContent=v;const sp=document.createElement("span");sp.textContent=n;d.append(b,sp);k.appendChild(d)}
+ const d=await api("/api/transactions?"+qs());const tb=$("tbl").querySelector("tbody");clear(tb);
+ for(const t of d.items){const tr=document.createElement("tr");tr.tabIndex=0;td(tr,t.txn_id,"l");td(tr,t.timestamp.replace("T"," ").slice(0,16));td(tr,t.amount.toFixed(2));td(tr,t.merchant_category,"l");td(tr,t.channel,"l");td(tr,t.score.toFixed(3));td(tr,t.band,"l band-"+t.band);td(tr,t.status,"l");
+  const open=()=>show(t.txn_id);tr.onclick=open;tr.onkeydown=(e)=>{if(e.key==="Enter")open()};tb.appendChild(tr)}
+ $("count").textContent="Showing "+d.items.length+" of "+d.total+" matching transactions.";st("st",s.transactions?"Loaded.":"No transactions yet: load sample data.")}catch(e){st("st",e.message,true)}}
+async function show(id){try{const t=await api("/api/transactions/"+encodeURIComponent(id));cur=t;$("detail").hidden=false;
+ $("dinfo").textContent=t.txn_id+" · "+t.amount.toFixed(2)+" · "+t.merchant_category+" · "+t.channel+" · score "+t.score.toFixed(3)+" ("+t.band+") · foreign "+t.foreign_txn+", new device "+t.new_device+", "+t.txn_count_1h+" in last hour, account age "+t.account_age_days+" d · status: "+t.status;
+ const s=$("ns");clear(s);for(const x of NEXT[t.status]){const o=document.createElement("option");o.textContent=x;s.appendChild(o)}$("sub").disabled=NEXT[t.status].length===0;
+ const h=$("hist");clear(h);for(const x of t.history){const li=document.createElement("li");li.textContent=x.ts+" · "+x.reviewer+" · "+x.old_status+" → "+x.new_status+(x.note?" · "+x.note:"");h.appendChild(li)}
+ st("dst",NEXT[t.status].length?"":"This transaction is closed.");$("detail").scrollIntoView()}catch(e){st("dst",e.message,true)}}
+$("sub").onclick=async()=>{if(!cur)return;$("sub").disabled=true;try{const t=await api("/api/transactions/"+encodeURIComponent(cur.txn_id)+"/status",{method:"POST",body:JSON.stringify({status:$("ns").value,note:$("note").value,expected_status:cur.status})});
+ $("note").value="";await show(t.txn_id);await refresh();st("dst","Decision recorded.")}catch(e){st("dst",e.message,true);$("sub").disabled=false}};
+$("load").onclick=async()=>{st("st","Loading sample…");try{const r=await api("/api/ingest/sample?n=2000",{method:"POST"});await refresh();st("st","Inserted "+r.inserted+" transactions.")}catch(e){st("st",e.message,true)}};
+$("apply").onclick=refresh;$("refresh").onclick=refresh;
+$("exp").onclick=async()=>{try{const t=await api("/api/export/transactions.csv?"+new URLSearchParams(qs().get("status")?{status:qs().get("status")}:{}),{raw:true});const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([t],{type:"text/csv"}));a.download="transactions.csv";a.click();URL.revokeObjectURL(a.href)}catch(e){st("st",e.message,true)}};
+refresh();
+</script></body></html>
